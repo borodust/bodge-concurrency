@@ -1,8 +1,8 @@
 (cl:in-package :bodge-concurrency)
 
 (defmacro with-body-in-main-thread (() &body body)
-  `(,@ #+darwin '(trivial-main-thread:with-body-in-main-thread ()) #-darwin' (in-new-thread ("main-thread"))
-                ,@body))
+  `(,@ #+darwin '(trivial-main-thread:with-body-in-main-thread ()) #-darwin '(in-new-thread ("main-thread"))
+       ,@body))
 
 
 (defun stop-main-runner ()
