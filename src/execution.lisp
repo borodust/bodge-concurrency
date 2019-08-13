@@ -18,12 +18,19 @@
 
 
 (defclass generic-executor (disposable)
-  ((queue :initform nil :reader task-queue-of)))
+  ((queue :initform nil :reader task-queue-of)
+   (invoker :initarg nil)))
 
 
-(defmethod initialize-instance :after ((this generic-executor) &key queue-size)
-  (with-slots (queue) this
-    (setf queue (make-blocking-queue queue-size))))
+(defmethod initialize-instance :after ((this generic-executor) &key queue-size invoker)
+  (with-slots (queue (this-invoker invoker)) this
+    (setf queue (make-blocking-queue queue-size)
+          this-invoker (or invoker (lambda (task) (funcall task))))))
+
+
+(definline invoke-next-task (executor)
+  (with-slots (queue invoker) executor
+    (funcall invoker (pop-from queue))))
 
 
 (define-destructor generic-executor (queue)
@@ -33,12 +40,12 @@
 (defun ignite (executor)
   (block interruptible
     (loop
-       (log-errors
-         (handler-bind ((interrupted (lambda (e)
-                                       (declare (ignore e))
-                                       ;; leave loop
-                                       (return-from interruptible))))
-           (funcall (pop-from (task-queue-of executor))))))))
+      (log-errors
+        (handler-bind ((interrupted (lambda (e)
+                                      (declare (ignore e))
+                                      ;; leave loop
+                                      (return-from interruptible))))
+          (invoke-next-task executor))))))
 
 
 (defclass blocking-executor (generic-executor) ())
@@ -62,8 +69,9 @@
       (put-into (task-queue-of this) task priority)))
 
 
-(definline make-discarding-executor (&optional queue-size)
-  (make-instance 'discarding-executor :queue-size queue-size))
+(definline make-discarding-executor (&optional invoker queue-size)
+  (make-instance 'discarding-executor :queue-size queue-size
+                                      :invoker invoker))
 
 
 ;;;
@@ -90,7 +98,8 @@
 
 
 (definline make-single-threaded-executor (&key (queue-size +default-queue-size+)
-                                               special-variables)
+                                               special-variables
+                                               invoker)
   "Make executor that run tasks in the same dedicated thread. Symbols specified in the
 `special-variables` would be available to the tasks ran by this executor.
 
@@ -99,7 +108,7 @@
 number of tasks is reached new incoming tasks will be discarded until number of tasks will drop
 below maximum allowed."
   (make-instance 'single-threaded-executor
-                 :executor (make-discarding-executor queue-size)
+                 :executor (make-discarding-executor invoker queue-size)
                  :special-variables special-variables))
 
 
