@@ -6,7 +6,8 @@
   :mailto "dev@borodust.org"
   :depends-on (bodge-utilities bodge-memory cl-flow
                                cl-muth trivial-main-thread bordeaux-threads
-                               simple-flow-dispatcher)
+                               simple-flow-dispatcher
+                               bodge-queue)
   :pathname "src/"
   :serial t
   :components ((:file "packages")

@@ -2,7 +2,7 @@
 
 (defstruct (task-queue
             (:constructor %make-task-queue))
-  (queue (make-guarded-reference (muth::make-fifo)) :read-only t))
+  (queue (make-guarded-reference (bodge-queue:make-queue)) :read-only t))
 
 
 (definline make-task-queue ()
@@ -15,7 +15,7 @@
   (when (null task-fu)
     (error "Task function cannot be nil"))
   (with-guarded-reference (queue (task-queue-queue task-queue))
-    (muth::fifo-push queue task-fu)))
+    (bodge-queue:queue-push queue task-fu)))
 
 
 (defmacro push-body-into ((task-queue) &body body)
@@ -28,7 +28,7 @@
 function as an argument instead. Thread-safe."
   (loop with count = 0
         for task = (with-guarded-reference (queue (task-queue-queue task-queue))
-                     (muth::fifo-pop queue))
+                     (bodge-queue:queue-pop queue))
         while task
         do (if invoker
                (funcall invoker task)
@@ -40,4 +40,4 @@ function as an argument instead. Thread-safe."
 (defun clearup (task-queue)
   "Remove all tasks from the queue. Thread-safe."
   (with-guarded-reference (queue (task-queue-queue task-queue))
-    (setf queue (muth::make-fifo))))
+    (bodge-queue:queue-clear queue)))
